@@ -55,9 +55,6 @@
         h1 {
             font-weight: 200; letter-spacing: 4px; text-transform: uppercase; font-size: 2.2rem; margin: 0 0 15px 0;
             background: linear-gradient(to right, #fff, #d4af37, #fff); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            line-height: 1.3; /* 新增行高，保证文字排版 */
-            white-space: normal;
-            max-width: 400px;
         }
 
         .instructions {
@@ -69,9 +66,7 @@
         .highlight { color: #d4af37; font-weight: bold; }
         #status-text { margin-bottom: 10px; font-size: 1rem; color: #fff; font-weight: bold; }
 
-        /* 隐藏上传按钮（核心修改） */
         #upload-btn {
-            display: none; /* 直接隐藏上传按钮 */
             pointer-events: auto; background: linear-gradient(45deg, #444, #666); border: 1px solid #888;
             color: #fff; padding: 10px 24px; cursor: pointer; text-transform: uppercase;
             font-size: 0.8rem; margin-top: 25px; transition: 0.3s; 
@@ -132,13 +127,13 @@
         <button id="fullscreen-btn" onclick="toggleUI()" title="切换沉浸模式">⛶</button>
 
         <div id="ui-layer">
-            <h1>Insects' antennae are tickling the world！</h1>
-            <div id="status-text">回忆初始化...</div>
+            <h1>Jewel Christmas</h1>
+            <div id="status-text">系统初始化...</div>
             <div class="instructions">
                 • <span class="highlight">握拳</span> : 聚合成树<br/>
                 • <span class="highlight">张开手</span> : 星云散开<br/>
                 • <span class="highlight">向右划动</span> : 惯性拨动 (像拨地球仪)<br/>
-                • <span class="highlight">捏合手指</span> : 抓取照片
+                • <span class="highlight">捏合手指</span> : 抓取照片(需上传)
             </div>
             <button id="upload-btn" onclick="document.getElementById('file-input').click()">上传照片</button>
             <input type="file" id="file-input" multiple accept="image/*">
@@ -407,22 +402,24 @@
                 logicData.star.rotation.y += 0.01;
             }
 
-            // --- 物理惯性旋转逻辑（原始可工作版本） ---
+            // --- 物理惯性旋转逻辑 (核心修改) ---
             if (currentState === STATE.ZOOM) {
+                // 缩放模式下：停止速度，但不重置角度！
                 rotationVelocity.x = 0;
                 rotationVelocity.y = 0;
+                // 注意：这里删除了 mainGroup.rotation 归正的代码，保持原角度
             } 
             else if (currentState === STATE.SCATTER) {
                 if (isHandPresent) {
                     const deltaX = handPos.x - lastHandPos.x;
                     const deltaY = handPos.y - lastHandPos.y;
                     
-                    // 左右旋转 (Y轴)
+                    // 1. 左右旋转 (Y轴) - 棘轮机制
                     if (deltaX > 0.002) { 
-                        rotationVelocity.y += deltaX * 0.15;
+                        rotationVelocity.y += deltaX * 0.15; // 力度系数
                     }
                     
-                    // 上下微动 (X轴)
+                    // 2. 上下微动 (X轴)
                     if (Math.abs(deltaY) > 0.002) {
                         rotationVelocity.x += deltaY * 0.05; 
                     }
@@ -431,7 +428,7 @@
                     lastHandPos.y = handPos.y;
                 }
                 
-                // 物理模拟
+                // 3. 物理模拟
                 rotationVelocity.y = Math.min(rotationVelocity.y, 0.05);
                 rotationVelocity.x = Math.max(Math.min(rotationVelocity.x, 0.02), -0.02);
 
@@ -499,7 +496,7 @@
             dustSystem.geometry.attributes.position.needsUpdate = true;
         }
 
-        // 照片更新逻辑（保留你的修改）
+        // 核心修改：照片更新逻辑
         function updatePhotos() {
             photoMeshes.forEach((mesh, idx) => {
                 let targetPos, targetScale = 2.0; 
@@ -510,8 +507,12 @@
                 }
 
                 if (currentState === STATE.ZOOM && idx === zoomTargetIndex) {
+                    // 1. 计算"镜头正前方"的世界坐标
                     const targetWorldPos = new THREE.Vector3(0, 0, 80); 
+                    // 2. 将该世界坐标转换为 mainGroup 的局部坐标
+                    // 这样无论 mainGroup 怎么转，照片都会飞到相对镜头的正前方
                     targetPos = mainGroup.worldToLocal(targetWorldPos);
+                    
                     targetScale = 4.0;
                     mesh.lookAt(camera.position); 
                 } else {
@@ -529,7 +530,7 @@
             });
         }
 
-        // --- 手势交互（还原原始可工作版本） ---
+        // --- Interaction ---
         async function setupMediaPipe() {
             const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm");
             const handLandmarker = await HandLandmarker.createFromOptions(vision, {
@@ -540,37 +541,20 @@
                 runningMode: "VIDEO", numHands: 1
             });
             const video = document.getElementById("input-video");
-            
-            // 摄像头权限请求（原始逻辑）
-            navigator.mediaDevices.getUserMedia({ video: true })
-            .then((stream) => {
+            navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
                 video.srcObject = stream;
                 video.addEventListener("loadeddata", () => {
                     document.getElementById('loading').style.display = 'none';
-                    document.getElementById('status-text').innerText = "回忆就绪，请伸手";
-                    // 初始化完成后自动加载默认照片
-                    loadDefaultPhotos();
-                    // 启动手势检测
+                    document.getElementById('status-text').innerText = "系统就绪，请伸手";
                     predictWebcam(handLandmarker, video);
                 });
-            })
-            .catch((err) => {
-                console.error("摄像头权限错误:", err);
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('status-text').innerText = "请允许摄像头权限以使用手势功能";
-                loadDefaultPhotos(); // 即使没有摄像头也加载照片
             });
         }
 
         let lastVideoTime = -1;
         async function predictWebcam(handLandmarker, video) {
-            if (!video.currentTime || video.currentTime === lastVideoTime) {
-                requestAnimationFrame(() => predictWebcam(handLandmarker, video));
-                return;
-            }
-            lastVideoTime = video.currentTime;
-            
-            try {
+            if (video.currentTime !== lastVideoTime) {
+                lastVideoTime = video.currentTime;
                 const result = handLandmarker.detectForVideo(video, performance.now());
                 
                 const canvas = document.getElementById('skeleton-canvas');
@@ -583,14 +567,11 @@
                     const landmarks = result.landmarks[0];
                     isHandPresent = true;
                     drawSkeleton(ctx, landmarks, canvas.width, canvas.height);
-                    handleGesture(landmarks); // 触发手势判定
+                    handleGesture(landmarks);
                 } else {
                     isHandPresent = false;
                 }
-            } catch (err) {
-                console.error("手势检测错误:", err);
             }
-            
             requestAnimationFrame(() => predictWebcam(handLandmarker, video));
         }
         
@@ -608,55 +589,59 @@
             }
         }
 
-        // 核心：还原手势判定逻辑（原始可工作版本）
         function handleGesture(landmarks) {
-            // 计算手掌中心位置
-            const palmX = (landmarks[0].x + landmarks[9].x) / 2;
+            const palmX = 1 - (landmarks[0].x + landmarks[9].x) / 2;
             const palmY = (landmarks[0].y + landmarks[9].y) / 2;
+            handPos.x = handPos.x * 0.8 + palmX * 0.2;
+            handPos.y = handPos.y * 0.8 + palmY * 0.2;
+
+            let folded = 0;
+            [8,12,16,20].forEach(i => { 
+                const d = Math.sqrt(Math.pow(landmarks[i].x-landmarks[0].x,2) + Math.pow(landmarks[i].y-landmarks[0].y,2));
+                if(d < 0.35) folded++; 
+            });
+            const dPinch = Math.sqrt(Math.pow(landmarks[4].x-landmarks[8].x,2) + Math.pow(landmarks[4].y-landmarks[8].y,2));
             
-            // 平滑更新手部位置
-            handPos.x = handPos.x * 0.7 + (1 - palmX) * 0.3;
-            handPos.y = handPos.y * 0.7 + palmY * 0.3;
+            const isPinch = dPinch < 0.1;
+            const isFist = folded >= 4;
+            const isOpen = !isFist && !isPinch;
 
-            // 判定握拳（手指弯曲）
-            let foldedFingers = 0;
-            const fingerTips = [4, 8, 12, 16, 20]; // 拇指+四指指尖
-            const fingerBases = [0, 5, 9, 13, 17]; // 手指根部
-            for (let i = 1; i < fingerTips.length; i++) { // 跳过拇指，只判断四指
-                const tip = landmarks[fingerTips[i]];
-                const base = landmarks[fingerBases[i]];
-                const distance = Math.sqrt(Math.pow(tip.x - base.x, 2) + Math.pow(tip.y - base.y, 2));
-                if (distance < 0.15) { // 阈值调整为更易触发
-                    foldedFingers++;
+            const status = document.getElementById('status-text');
+
+            if (isPinch && currentState === STATE.SCATTER) {
+                if (photoMeshes.length > 0) {
+                    targetState = STATE.ZOOM;
+                    currentState = STATE.ZOOM;
+                    status.innerHTML = "状态: <span style='color:#ffd700'>抓取照片</span>";
+                    
+                    if (zoomTargetIndex === -1 && photoMeshes.length > 0) {
+                        // 智能选择：计算所有照片的世界坐标，选离相机最近的
+                        let minDist = Infinity;
+                        let bestIdx = 0;
+                        const camPos = camera.position;
+                        const worldPos = new THREE.Vector3();
+
+                        photoMeshes.forEach((mesh, idx) => {
+                            mesh.getWorldPosition(worldPos);
+                            const d = worldPos.distanceTo(camPos);
+                            if (d < minDist) {
+                                minDist = d;
+                                bestIdx = idx;
+                            }
+                        });
+                        zoomTargetIndex = bestIdx;
+                    }
+                } else {
+                    status.innerHTML = "状态: <span style='color:#aaa'>请先上传照片</span>";
                 }
-            }
-
-            // 判定捏合（拇指和食指靠近）
-            const thumbTip = landmarks[4];
-            const indexTip = landmarks[8];
-            const pinchDistance = Math.sqrt(Math.pow(thumbTip.x - indexTip.x, 2) + Math.pow(thumbTip.y - indexTip.y, 2));
-            const isPinch = pinchDistance < 0.1;
-            const isFist = foldedFingers >= 3; // 3根以上手指弯曲判定为握拳
-            const isOpenHand = foldedFingers < 1; // 几乎没有手指弯曲判定为张开手
-
-            const statusText = document.getElementById('status-text');
-
-            // 手势逻辑判定
-            if (isPinch && currentState === STATE.SCATTER && photoMeshes.length > 0) {
-                // 捏合：抓取照片
-                currentState = STATE.ZOOM;
-                zoomTargetIndex = zoomTargetIndex === -1 ? Math.floor(Math.random() * photoMeshes.length) : zoomTargetIndex;
-                statusText.innerHTML = "状态: <span style='color:#ffd700'>抓取照片</span>";
             } else if (isFist) {
-                // 握拳：聚合为树
                 currentState = STATE.TREE;
                 zoomTargetIndex = -1;
                 rotationVelocity.x = 0;
                 rotationVelocity.y = 0;
-                statusText.innerHTML = "状态: <span style='color:#00ff00'>聚合圣诞树</span>";
-            } else if (isOpenHand) {
-                // 张开手：星云散开
-                if (currentState === STATE.ZOOM) {
+                status.innerHTML = "状态: <span style='color:#00ff00'>聚合圣诞树</span>";
+            } else if (isOpen) {
+                if(currentState === STATE.ZOOM && !isPinch) {
                     currentState = STATE.SCATTER;
                     zoomTargetIndex = -1;
                 } else if (currentState === STATE.TREE) {
@@ -664,7 +649,7 @@
                     lastHandPos.x = handPos.x;
                     lastHandPos.y = handPos.y;
                 }
-                statusText.innerHTML = "状态: <span style='color:#00aaff'>星云散开</span>";
+                status.innerHTML = "状态: <span style='color:#00aaff'>星云散开</span>";
             }
         }
 
@@ -677,38 +662,20 @@
             composer.passes[1].resolution.set(dims.width, dims.height);
         }
 
-        // 自动加载照片（保留你的修改）
-        function loadDefaultPhotos() {
-            const statusText = document.getElementById('status-text');
-            statusText.innerText = "正在加载回忆...";
-            let loadedCount = 0;
-            const totalPhotos = 27;
-
-            for (let i = 1; i <= totalPhotos; i++) {
-                const imgUrl = `./images/photos/${i}.jpg`;
-                const img = new Image();
-                img.crossOrigin = 'anonymous';
-                
-                img.onload = () => {
-                    addPhotoMesh(img);
-                    loadedCount++;
-                    statusText.innerText = `已加载 ${loadedCount}/${totalPhotos} 张回忆`;
-                    if (loadedCount === totalPhotos) {
-                        statusText.innerText = "回忆就绪，请伸手";
-                    }
-                };
-                
-                img.onerror = () => {
-                    console.warn(`图片加载失败: ${imgUrl}（可能文件不存在）`);
-                    loadedCount++;
-                    if (loadedCount === totalPhotos) {
-                        statusText.innerText = "回忆就绪（部分图片加载失败），请伸手";
-                    }
-                };
-                
-                img.src = imgUrl;
+        document.getElementById('file-input').addEventListener('change', function(e) {
+            const files = e.target.files;
+            if (!files.length) return;
+            for(let i=0; i<files.length; i++) {
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    const img = new Image();
+                    img.src = evt.target.result;
+                    img.onload = () => { addPhotoMesh(img); }
+                }
+                reader.readAsDataURL(files[i]);
             }
-        }
+            alert(`已添加 ${files.length} 张照片`);
+        });
 
         function addPhotoMesh(img) {
             const tex = new THREE.Texture(img);
@@ -746,7 +713,6 @@
             mainGroup.add(mesh);
         }
 
-        // 初始化
         initThree();
         animate();
         setupMediaPipe();
