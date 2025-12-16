@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jewel Christmas Tree - 旋转满屏适配</title>
+    <title>Jewel Christmas Tree - Smart Zoom</title>
     <style>
         body { 
             margin: 0; 
@@ -16,7 +16,7 @@
             height: 100vh;
         }
 
-        /* 16:10 容器 */
+        /* 4:3 容器 */
         #canvas-wrapper {
             position: relative;
             box-shadow: 0 0 50px rgba(255, 215, 0, 0.1);
@@ -149,15 +149,15 @@
         import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
         import { FilesetResolver, HandLandmarker } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0';
 
-        // --- 核心修改：增大粒子数量+尺寸，适配旋转满屏 ---
+        // --- Config ---
         const CONFIG = {
-            goldCount: 900,     // 进一步增加粒子数量
-            silverCount: 900,   // 进一步增加粒子数量
-            gemCount: 700,      // 进一步增加粒子数量
-            emeraldCount: 700,  // 进一步增加粒子数量
-            dustCount: 2000,    // 进一步增加尘埃数量
-            treeHeight: 120,    // 保持圣诞树高度
-            maxRadius: 50       // 保持圣诞树半径
+            goldCount: 600,     // 金球
+            silverCount: 600,   // 银方块
+            gemCount: 400,      // 红宝石
+            emeraldCount: 400,  // 祖母绿
+            dustCount: 1200,    // 氛围粒子
+            treeHeight: 75,
+            maxRadius: 30
         };
 
         const STATE = { TREE: 'tree', SCATTER: 'scatter', ZOOM: 'zoom' };
@@ -206,12 +206,11 @@
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x020202); 
 
-            // 初始化尺寸计算 (16:10)
+            // 初始化尺寸计算 (4:3)
             updateDimensions();
 
-            // 核心修改1：增大相机FOV，扩大可视范围（旋转时更少空白）
-            camera = new THREE.PerspectiveCamera(70, wrapper.clientWidth / wrapper.clientHeight, 0.1, 2000); 
-            camera.position.set(0, 0, 180); 
+            camera = new THREE.PerspectiveCamera(50, wrapper.clientWidth / wrapper.clientHeight, 0.1, 1000);
+            camera.position.set(0, 0, 110);
 
             renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
             renderer.setSize(wrapper.clientWidth, wrapper.clientHeight);
@@ -224,25 +223,27 @@
             const pmremGenerator = new THREE.PMREMGenerator(renderer);
             scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
 
-            // 灯光：增强亮度适配大粒子
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+            // 灯光
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
             scene.add(ambientLight);
 
-            const spotLight = new THREE.SpotLight(0xffddaa, 120);
-            spotLight.position.set(50, 80, 70);
+            // 主暖光
+            const spotLight = new THREE.SpotLight(0xffddaa, 80);
+            spotLight.position.set(30, 60, 50);
             spotLight.angle = Math.PI / 4;
             spotLight.penumbra = 1;
             scene.add(spotLight);
 
-            const blueLight = new THREE.PointLight(0xaaddff, 60, 150);
-            blueLight.position.set(-50, -30, 50);
+            // 冷色补光
+            const blueLight = new THREE.PointLight(0xaaddff, 40, 100);
+            blueLight.position.set(-30, -20, 30);
             scene.add(blueLight);
             
-            // Bloom：适配大粒子
+            // Bloom
             const renderScene = new RenderPass(scene, camera);
             const bloomPass = new UnrealBloomPass(new THREE.Vector2(wrapper.clientWidth, wrapper.clientHeight), 1.5, 0.4, 0.85);
-            bloomPass.threshold = 0.35;
-            bloomPass.strength = 0.7;
+            bloomPass.threshold = 0.4;
+            bloomPass.strength = 0.6;
             bloomPass.radius = 0.5;
 
             composer = new EffectComposer(renderer);
@@ -258,14 +259,16 @@
         }
 
         function updateDimensions() {
-            const targetAspect = 16 / 10; 
+            const targetAspect = 4 / 3;
             const windowAspect = window.innerWidth / window.innerHeight;
             let width, height;
 
             if (windowAspect > targetAspect) {
+                // 窗口更宽，以高度为准
                 height = window.innerHeight;
                 width = height * targetAspect;
             } else {
+                // 窗口更高，以宽度为准
                 width = window.innerWidth;
                 height = width / targetAspect;
             }
@@ -278,37 +281,37 @@
         }
 
         function createMaterialsAndMeshes() {
-            // 材质：微调发光强度
+            // 材质
             const goldMat = new THREE.MeshPhysicalMaterial({
-                color: 0xffaa00, metalness: 1.0, roughness: 0.15, clearcoat: 1.0, emissive: 0xaa5500, emissiveIntensity: 0.15
+                color: 0xffaa00, metalness: 1.0, roughness: 0.15, clearcoat: 1.0, emissive: 0xaa5500, emissiveIntensity: 0.1
             });
             const silverMat = new THREE.MeshPhysicalMaterial({
-                color: 0xeeeeee, metalness: 0.9, roughness: 0.2, clearcoat: 1.0, emissive: 0x222222, emissiveIntensity: 0.15
+                color: 0xeeeeee, metalness: 0.9, roughness: 0.2, clearcoat: 1.0, emissive: 0x222222, emissiveIntensity: 0.1
             });
             const gemMat = new THREE.MeshPhysicalMaterial({
-                color: 0xff0044, metalness: 0.1, roughness: 0.0, transmission: 0.5, thickness: 1.0, emissive: 0x440011, emissiveIntensity: 0.4
+                color: 0xff0044, metalness: 0.1, roughness: 0.0, transmission: 0.5, thickness: 1.0, emissive: 0x440011, emissiveIntensity: 0.3
             });
             const emeraldMat = new THREE.MeshPhysicalMaterial({
-                color: 0x00aa55, metalness: 0.2, roughness: 0.1, transmission: 0.4, thickness: 1.5, emissive: 0x002211, emissiveIntensity: 0.3
+                color: 0x00aa55, metalness: 0.2, roughness: 0.1, transmission: 0.4, thickness: 1.5, emissive: 0x002211, emissiveIntensity: 0.2
             });
 
-            // 核心修改2：增大粒子几何体尺寸（视觉上更饱满）
-            const sphereGeo = new THREE.SphereGeometry(1.1, 16, 16); // 金球从0.9→1.1
-            const boxGeo = new THREE.BoxGeometry(1.3, 1.3, 1.3);   // 银方块从1.1→1.3
-            const diamondGeo = new THREE.OctahedronGeometry(1.2, 0); // 红宝石从1.0→1.2
-            const coneGeo = new THREE.ConeGeometry(0.9, 1.6, 8);   // 祖母绿从0.7→0.9，高度1.4→1.6
+            // 几何体
+            const sphereGeo = new THREE.SphereGeometry(0.7, 16, 16);
+            const boxGeo = new THREE.BoxGeometry(0.9, 0.9, 0.9);
+            const diamondGeo = new THREE.OctahedronGeometry(0.8, 0);
+            const coneGeo = new THREE.ConeGeometry(0.5, 1.2, 8); 
 
             goldMesh = createInstancedMesh(sphereGeo, goldMat, CONFIG.goldCount, logicData.gold);
             silverMesh = createInstancedMesh(boxGeo, silverMat, CONFIG.silverCount, logicData.silver);
             gemMesh = createInstancedMesh(diamondGeo, gemMat, CONFIG.gemCount, logicData.gem);
             emeraldMesh = createInstancedMesh(coneGeo, emeraldMat, CONFIG.emeraldCount, logicData.emerald);
 
-            // 树顶星星放大
+            // 树顶星星
             const star = new THREE.Mesh(
-                new THREE.OctahedronGeometry(4.5, 0), // 星星从4.0→4.5
-                new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness:0.8, roughness:0, emissive:0xffffee, emissiveIntensity:1.2 })
+                new THREE.OctahedronGeometry(3.0, 0), 
+                new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness:0.8, roughness:0, emissive:0xffffee, emissiveIntensity:1 })
             );
-            star.userData = { treePos: new THREE.Vector3(0, CONFIG.treeHeight/2 + 5, 0), scatterPos: new THREE.Vector3(0, 100, 0) }; 
+            star.userData = { treePos: new THREE.Vector3(0, CONFIG.treeHeight/2 + 2, 0), scatterPos: new THREE.Vector3(0, 60, 0) };
             star.position.copy(star.userData.treePos);
             mainGroup.add(star);
             logicData.star = star;
@@ -332,27 +335,23 @@
                 const theta = Math.random() * Math.PI * 2;
                 
                 const treePos = new THREE.Vector3(r * Math.cos(theta), h, r * Math.sin(theta));
-                // 核心修改3：增大粒子散开范围（含深度），旋转时填满屏幕
-                const scatterPos = randomScreenFillPoint();
+                const scatterPos = randomSpherePoint(40 + Math.random()*40);
 
                 array.push({
                     treePos: treePos,
                     scatterPos: scatterPos,
                     currentPos: treePos.clone(),
-                    scale: 1.0 + Math.random() * 1.2, // 核心修改4：增大粒子基础缩放（视觉更大）
+                    scale: 0.6 + Math.random() * 0.8,
                     rotSpeed: new THREE.Euler(Math.random()*0.03, Math.random()*0.03, Math.random()*0.03),
                     rotation: new THREE.Euler(Math.random()*Math.PI, Math.random()*Math.PI, 0)
                 });
             }
         }
 
-        // 核心修改5：扩大粒子分布范围（x/y/z轴），覆盖16:10全屏+深度
-        function randomScreenFillPoint() {
-            const aspect = 16/10; 
-            const x = (Math.random() - 0.5) * 550; // 宽度从480→550
-            const y = (Math.random() - 0.5) * (550 / aspect); // 高度适配16:10
-            const z = 50 + Math.random() * 250; // 深度从200→250（前后覆盖更广）
-            return new THREE.Vector3(x, y, z);
+        function randomSpherePoint(r) {
+            const u = Math.random(), v = Math.random();
+            const theta = 2 * Math.PI * u, phi = Math.acos(2 * v - 1);
+            return new THREE.Vector3(r * Math.sin(phi) * Math.cos(theta), r * Math.sin(phi) * Math.sin(theta), r * Math.cos(phi));
         }
 
         function createDust() {
@@ -360,28 +359,26 @@
             const pos = [];
             for(let i=0; i<CONFIG.dustCount; i++) {
                 const h = Math.random() * CONFIG.treeHeight - CONFIG.treeHeight/2;
-                const r = Math.random() * CONFIG.maxRadius * (1 - (h + CONFIG.treeHeight/2)/CONFIG.treeHeight) + 3;
+                const r = Math.random() * CONFIG.maxRadius * (1 - (h + CONFIG.treeHeight/2)/CONFIG.treeHeight) + 2; 
                 const theta = Math.random() * Math.PI * 2;
                 pos.push(r*Math.cos(theta), h, r*Math.sin(theta));
                 logicData.dust.push({
                     treePos: new THREE.Vector3(r*Math.cos(theta), h, r*Math.sin(theta)),
-                    scatterPos: randomScreenFillPoint(),
+                    scatterPos: randomSpherePoint(60),
                     currentPos: new THREE.Vector3(r*Math.cos(theta), h, r*Math.sin(theta))
                 });
             }
             geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-            // 核心修改6：增大尘埃尺寸（从1.0→1.2）
-            dustSystem = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffee, size: 1.2, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
+            dustSystem = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffee, size: 0.6, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }));
             mainGroup.add(dustSystem);
         }
         
         function createStarField() {
-            // 扩大星空范围，填充背景
             const geo = new THREE.BufferGeometry();
             const pos = [];
-            for(let i=0; i<3000; i++) pos.push((Math.random()-0.5)*3000, (Math.random()-0.5)*3000, (Math.random()-0.5)*3000);
+            for(let i=0; i<1000; i++) pos.push((Math.random()-0.5)*1000, (Math.random()-0.5)*1000, (Math.random()-0.5)*1000);
             geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-            const stars = new THREE.Points(geo, new THREE.PointsMaterial({color: 0x888888, size: 1.8, transparent: true, opacity: 0.6}));
+            const stars = new THREE.Points(geo, new THREE.PointsMaterial({color: 0x888888, size: 1.2, transparent: true, opacity: 0.5}));
             scene.add(stars);
         }
 
@@ -398,48 +395,53 @@
             updateDust();
             updatePhotos();
             
-            // 星星动画
+            // 星星
             if (logicData.star) {
                 let target = currentState === STATE.TREE ? logicData.star.userData.treePos : logicData.star.userData.scatterPos;
-                logicData.star.position.lerp(target, 0.08);
-                logicData.star.rotation.y += 0.008;
+                logicData.star.position.lerp(target, 0.05);
+                logicData.star.rotation.y += 0.01;
             }
 
-            // 旋转逻辑：微调惯性，避免旋转过快导致空白
+            // --- 物理惯性旋转逻辑 (核心修改) ---
             if (currentState === STATE.ZOOM) {
+                // 缩放模式下：停止速度，但不重置角度！
                 rotationVelocity.x = 0;
                 rotationVelocity.y = 0;
+                // 注意：这里删除了 mainGroup.rotation 归正的代码，保持原角度
             } 
             else if (currentState === STATE.SCATTER) {
                 if (isHandPresent) {
                     const deltaX = handPos.x - lastHandPos.x;
                     const deltaY = handPos.y - lastHandPos.y;
                     
+                    // 1. 左右旋转 (Y轴) - 棘轮机制
                     if (deltaX > 0.002) { 
-                        rotationVelocity.y += deltaX * 0.14; // 降低旋转力度，避免视角突变
+                        rotationVelocity.y += deltaX * 0.15; // 力度系数
                     }
                     
+                    // 2. 上下微动 (X轴)
                     if (Math.abs(deltaY) > 0.002) {
-                        rotationVelocity.x += deltaY * 0.04; 
+                        rotationVelocity.x += deltaY * 0.05; 
                     }
                     
                     lastHandPos.x = handPos.x;
                     lastHandPos.y = handPos.y;
                 }
                 
-                rotationVelocity.y = Math.min(rotationVelocity.y, 0.04);
+                // 3. 物理模拟
+                rotationVelocity.y = Math.min(rotationVelocity.y, 0.05);
                 rotationVelocity.x = Math.max(Math.min(rotationVelocity.x, 0.02), -0.02);
 
                 mainGroup.rotation.y += rotationVelocity.y;
                 mainGroup.rotation.x += rotationVelocity.x;
                 
-                rotationVelocity.y *= 0.94; 
-                rotationVelocity.x *= 0.90; 
+                rotationVelocity.y *= 0.96; 
+                rotationVelocity.x *= 0.92; 
                 
-                mainGroup.rotation.x *= 0.97; 
+                mainGroup.rotation.x *= 0.98; 
 
             } else if (currentState === STATE.TREE) {
-                mainGroup.rotation.y += 0.0025;
+                mainGroup.rotation.y += 0.003;
                 mainGroup.rotation.x *= 0.95;
             }
 
@@ -452,14 +454,14 @@
                 let target = currentState === STATE.TREE ? item.treePos : item.scatterPos;
                 if(currentState === STATE.ZOOM) target = item.scatterPos;
                 
-                if (currentState === STATE.SCATTER) item.currentPos.y += Math.sin(time + i)*0.008;
+                if (currentState === STATE.SCATTER) item.currentPos.y += Math.sin(time + i)*0.005;
 
-                item.currentPos.lerp(target, 0.15);
+                item.currentPos.lerp(target, 0.08);
                 item.rotation.x += item.rotSpeed.x;
                 item.rotation.y += item.rotSpeed.y;
 
                 let s = item.scale;
-                if(currentState === STATE.ZOOM) s = item.scale * 0.7; // 放大时粒子稍大
+                if(currentState === STATE.ZOOM) s = item.scale * 0.6; 
 
                 dummy.position.copy(item.currentPos);
                 dummy.rotation.copy(item.rotation);
@@ -475,12 +477,12 @@
             for(let i=0; i<logicData.dust.length; i++) {
                 const item = logicData.dust[i];
                 let target = currentState === STATE.TREE ? item.treePos : item.scatterPos;
-                if(currentState !== STATE.TREE) item.currentPos.lerp(target, 0.12);
+                if(currentState !== STATE.TREE) item.currentPos.lerp(target, 0.05);
                 else {
-                    item.currentPos.y += 0.06;
+                    item.currentPos.y += 0.05;
                     if(item.currentPos.y > CONFIG.treeHeight/2) item.currentPos.y = -CONFIG.treeHeight/2;
                     const normH = (item.currentPos.y + CONFIG.treeHeight/2) / CONFIG.treeHeight;
-                    const rMax = CONFIG.maxRadius * (1-normH) + 3;
+                    const rMax = CONFIG.maxRadius * (1-normH) + 2;
                     const rCurr = Math.sqrt(item.currentPos.x**2 + item.currentPos.z**2);
                     if(rCurr > rMax) {
                         item.currentPos.x *= 0.98;
@@ -494,24 +496,28 @@
             dustSystem.geometry.attributes.position.needsUpdate = true;
         }
 
+        // 核心修改：照片更新逻辑
         function updatePhotos() {
             photoMeshes.forEach((mesh, idx) => {
-                let targetPos, targetScale = 3.0; // 核心修改7：增大照片基础尺寸（从2.5→3.0）
+                let targetPos, targetScale = 2.0; 
                 
                 if (currentState === STATE.SCATTER) {
-                    targetScale = 5.5; // 散开时照片更大
+                    targetScale = 4.0; 
                     mesh.lookAt(camera.position); 
                 }
 
                 if (currentState === STATE.ZOOM && idx === zoomTargetIndex) {
-                    const targetWorldPos = new THREE.Vector3(0, 0, 100);
+                    // 1. 计算"镜头正前方"的世界坐标
+                    const targetWorldPos = new THREE.Vector3(0, 0, 80); 
+                    // 2. 将该世界坐标转换为 mainGroup 的局部坐标
+                    // 这样无论 mainGroup 怎么转，照片都会飞到相对镜头的正前方
                     targetPos = mainGroup.worldToLocal(targetWorldPos);
                     
-                    targetScale = 6.5; // 抓取时照片更大
+                    targetScale = 4.0;
                     mesh.lookAt(camera.position); 
                 } else {
                     targetPos = currentState === STATE.TREE ? mesh.userData.treePos : mesh.userData.scatterPos;
-                    if(currentState !== STATE.TREE) mesh.position.y += Math.sin(time+idx)*0.012;
+                    if(currentState !== STATE.TREE) mesh.position.y += Math.sin(time+idx)*0.01;
                     
                     if (currentState === STATE.TREE) {
                         mesh.rotation.copy(mesh.userData.baseRot);
@@ -519,34 +525,39 @@
                     }
                 }
                 
-                mesh.position.lerp(targetPos, 0.12);
-                mesh.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.12);
+                mesh.position.lerp(targetPos, 0.1);
+                mesh.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
             });
         }
 
-        // --- 自动加载27张图片 ---
+        // --- 新增：自动加载27张图片 ---
         function loadDefaultPhotos() {
             const statusText = document.getElementById('status-text');
             statusText.innerText = "正在加载回忆... (0/27)";
             let loadedCount = 0;
             const totalPhotos = 27;
 
+            // 遍历加载1-27.jpg
             for (let i = 1; i <= totalPhotos; i++) {
-                const imgUrl = `./images/photos/${i}.jpg`;
+                const imgUrl = `./images/photos/${i}.jpg`; // 图片路径（需确保文件存在）
                 const img = new Image();
                 
+                // 跨域处理（若部署在CDN/GitHub Pages需开启）
                 img.crossOrigin = 'anonymous';
                 
+                // 图片加载成功
                 img.onload = () => {
                     addPhotoMesh(img);
                     loadedCount++;
                     statusText.innerText = `正在加载照片... (${loadedCount}/${totalPhotos})`;
                     
+                    // 全部加载完成
                     if (loadedCount === totalPhotos) {
                         statusText.innerText = "回忆就绪，请伸手";
                     }
                 };
                 
+                // 图片加载失败（容错处理）
                 img.onerror = () => {
                     console.warn(`图片加载失败: ${imgUrl}（请检查文件路径）`);
                     loadedCount++;
@@ -557,6 +568,7 @@
                     }
                 };
                 
+                // 开始加载
                 img.src = imgUrl;
             }
         }
@@ -576,10 +588,12 @@
                 video.srcObject = stream;
                 video.addEventListener("loadeddata", () => {
                     document.getElementById('loading').style.display = 'none';
+                    // 摄像头加载完成后，自动加载27张照片
                     loadDefaultPhotos();
                     predictWebcam(handLandmarker, video);
                 });
             }).catch(err => {
+                // 摄像头权限拒绝时，仍自动加载照片
                 console.error("摄像头权限错误:", err);
                 document.getElementById('loading').style.display = 'none';
                 loadDefaultPhotos();
@@ -651,6 +665,7 @@
                     status.innerHTML = "状态: <span style='color:#ffd700'>抓取照片</span>";
                     
                     if (zoomTargetIndex === -1 && photoMeshes.length > 0) {
+                        // 智能选择：计算所有照片的世界坐标，选离相机最近的
                         let minDist = Infinity;
                         let bestIdx = 0;
                         const camPos = camera.position;
@@ -697,7 +712,7 @@
             composer.passes[1].resolution.set(dims.width, dims.height);
         }
 
-        // 手动上传照片
+        // 保留原有上传按钮功能（手动上传）
         document.getElementById('file-input').addEventListener('change', function(e) {
             const files = e.target.files;
             if (!files.length) return;
@@ -717,9 +732,9 @@
             const tex = new THREE.Texture(img);
             tex.needsUpdate = true;
             tex.colorSpace = THREE.SRGBColorSpace;
-            let w = 6, h = 6; // 核心修改8：增大照片基础尺寸（从5→6）
-            if(img.width > img.height) h = 6 * (img.height/img.width);
-            else w = 6 * (img.width/img.height);
+            let w = 4, h = 4;
+            if(img.width > img.height) h = 4 * (img.height/img.width);
+            else w = 4 * (img.width/img.height);
 
             const geo = new THREE.PlaneGeometry(w, h);
             const mat = new THREE.MeshBasicMaterial({ 
@@ -729,9 +744,8 @@
             });
             const mesh = new THREE.Mesh(geo, mat);
             
-            // 相框尺寸适配大照片
-            const frame = new THREE.Mesh(new THREE.BoxGeometry(w+0.3, h+0.3, 0.1), new THREE.MeshPhysicalMaterial({color:0xffd700, roughness:0.2, metalness:1}));
-            frame.position.z = -0.08;
+            const frame = new THREE.Mesh(new THREE.BoxGeometry(w+0.2, h+0.2, 0.1), new THREE.MeshPhysicalMaterial({color:0xffd700, roughness:0.2, metalness:1}));
+            frame.position.z = -0.06;
             mesh.add(frame);
 
             const h_pos = (Math.random() - 0.5) * CONFIG.treeHeight;
@@ -742,7 +756,7 @@
             const theta = Math.random() * Math.PI * 2;
             
             const treePos = new THREE.Vector3(r * Math.cos(theta), h_pos, r * Math.sin(theta));
-            const scatterPos = randomScreenFillPoint();
+            const scatterPos = randomSpherePoint(50);
 
             mesh.userData = { treePos, scatterPos, baseRot: new THREE.Euler(0, Math.random()*Math.PI, 0) };
             mesh.position.copy(treePos);
