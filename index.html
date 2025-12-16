@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jewel Christmas Tree - 16:10适配</title>
+    <title>Jewel Christmas Tree - 旋转满屏适配</title>
     <style>
         body { 
             margin: 0; 
@@ -149,15 +149,15 @@
         import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
         import { FilesetResolver, HandLandmarker } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0';
 
-        // --- 核心修改1：放大圣诞树基础尺寸（适配16:10）---
+        // --- 核心修改：增大粒子数量+尺寸，适配旋转满屏 ---
         const CONFIG = {
-            goldCount: 800,     // 增加粒子数量，匹配更大的树
-            silverCount: 800,   // 增加粒子数量
-            gemCount: 600,      // 增加粒子数量
-            emeraldCount: 600,  // 增加粒子数量
-            dustCount: 1800,    // 增加尘埃数量
-            treeHeight: 120,    // 圣诞树高度从75→120
-            maxRadius: 50       // 圣诞树最大半径从30→50（适配16:10宽度）
+            goldCount: 900,     // 进一步增加粒子数量
+            silverCount: 900,   // 进一步增加粒子数量
+            gemCount: 700,      // 进一步增加粒子数量
+            emeraldCount: 700,  // 进一步增加粒子数量
+            dustCount: 2000,    // 进一步增加尘埃数量
+            treeHeight: 120,    // 保持圣诞树高度
+            maxRadius: 50       // 保持圣诞树半径
         };
 
         const STATE = { TREE: 'tree', SCATTER: 'scatter', ZOOM: 'zoom' };
@@ -209,9 +209,9 @@
             // 初始化尺寸计算 (16:10)
             updateDimensions();
 
-            // 核心修改2：相机后移+增大FOV，适配更大的圣诞树
-            camera = new THREE.PerspectiveCamera(65, wrapper.clientWidth / wrapper.clientHeight, 0.1, 2000); 
-            camera.position.set(0, 0, 180); // 相机后移从130→180，完整显示大圣诞树
+            // 核心修改1：增大相机FOV，扩大可视范围（旋转时更少空白）
+            camera = new THREE.PerspectiveCamera(70, wrapper.clientWidth / wrapper.clientHeight, 0.1, 2000); 
+            camera.position.set(0, 0, 180); 
 
             renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
             renderer.setSize(wrapper.clientWidth, wrapper.clientHeight);
@@ -224,23 +224,21 @@
             const pmremGenerator = new THREE.PMREMGenerator(renderer);
             scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
 
-            // 灯光：增强亮度适配大尺寸
+            // 灯光：增强亮度适配大粒子
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
             scene.add(ambientLight);
 
-            // 主暖光：增强强度
             const spotLight = new THREE.SpotLight(0xffddaa, 120);
-            spotLight.position.set(50, 80, 70); // 灯光位置适配大圣诞树
+            spotLight.position.set(50, 80, 70);
             spotLight.angle = Math.PI / 4;
             spotLight.penumbra = 1;
             scene.add(spotLight);
 
-            // 冷色补光：增强强度
             const blueLight = new THREE.PointLight(0xaaddff, 60, 150);
-            blueLight.position.set(-50, -30, 50); // 补光位置适配大圣诞树
+            blueLight.position.set(-50, -30, 50);
             scene.add(blueLight);
             
-            // Bloom：微调参数适配大粒子
+            // Bloom：适配大粒子
             const renderScene = new RenderPass(scene, camera);
             const bloomPass = new UnrealBloomPass(new THREE.Vector2(wrapper.clientWidth, wrapper.clientHeight), 1.5, 0.4, 0.85);
             bloomPass.threshold = 0.35;
@@ -260,7 +258,6 @@
         }
 
         function updateDimensions() {
-            // 16:10 比例核心
             const targetAspect = 16 / 10; 
             const windowAspect = window.innerWidth / window.innerHeight;
             let width, height;
@@ -281,7 +278,7 @@
         }
 
         function createMaterialsAndMeshes() {
-            // 材质：微调发光强度适配大尺寸
+            // 材质：微调发光强度
             const goldMat = new THREE.MeshPhysicalMaterial({
                 color: 0xffaa00, metalness: 1.0, roughness: 0.15, clearcoat: 1.0, emissive: 0xaa5500, emissiveIntensity: 0.15
             });
@@ -295,20 +292,20 @@
                 color: 0x00aa55, metalness: 0.2, roughness: 0.1, transmission: 0.4, thickness: 1.5, emissive: 0x002211, emissiveIntensity: 0.3
             });
 
-            // 几何体：微调尺寸适配大圣诞树
-            const sphereGeo = new THREE.SphereGeometry(0.9, 16, 16); // 金球从0.7→0.9
-            const boxGeo = new THREE.BoxGeometry(1.1, 1.1, 1.1);   // 银方块从0.9→1.1
-            const diamondGeo = new THREE.OctahedronGeometry(1.0, 0); // 红宝石从0.8→1.0
-            const coneGeo = new THREE.ConeGeometry(0.7, 1.4, 8);   // 祖母绿从0.5→0.7，高度1.2→1.4
+            // 核心修改2：增大粒子几何体尺寸（视觉上更饱满）
+            const sphereGeo = new THREE.SphereGeometry(1.1, 16, 16); // 金球从0.9→1.1
+            const boxGeo = new THREE.BoxGeometry(1.3, 1.3, 1.3);   // 银方块从1.1→1.3
+            const diamondGeo = new THREE.OctahedronGeometry(1.2, 0); // 红宝石从1.0→1.2
+            const coneGeo = new THREE.ConeGeometry(0.9, 1.6, 8);   // 祖母绿从0.7→0.9，高度1.4→1.6
 
             goldMesh = createInstancedMesh(sphereGeo, goldMat, CONFIG.goldCount, logicData.gold);
             silverMesh = createInstancedMesh(boxGeo, silverMat, CONFIG.silverCount, logicData.silver);
             gemMesh = createInstancedMesh(diamondGeo, gemMat, CONFIG.gemCount, logicData.gem);
             emeraldMesh = createInstancedMesh(coneGeo, emeraldMat, CONFIG.emeraldCount, logicData.emerald);
 
-            // 核心修改3：树顶星星放大+位置上移（适配120高度）
+            // 树顶星星放大
             const star = new THREE.Mesh(
-                new THREE.OctahedronGeometry(4.0, 0), // 星星从3.0→4.0
+                new THREE.OctahedronGeometry(4.5, 0), // 星星从4.0→4.5
                 new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness:0.8, roughness:0, emissive:0xffffee, emissiveIntensity:1.2 })
             );
             star.userData = { treePos: new THREE.Vector3(0, CONFIG.treeHeight/2 + 5, 0), scatterPos: new THREE.Vector3(0, 100, 0) }; 
@@ -327,35 +324,34 @@
 
         function generateLogicData(count, array) {
             for (let i = 0; i < count; i++) {
-                // 适配新的treeHeight（120）计算y轴范围
                 const h = Math.random() * CONFIG.treeHeight - CONFIG.treeHeight/2;
                 const normH = (h + CONFIG.treeHeight/2) / CONFIG.treeHeight;
-                const rMax = CONFIG.maxRadius * (1 - normH); // 适配新的maxRadius（50）
+                const rMax = CONFIG.maxRadius * (1 - normH);
                 
                 const r = Math.sqrt(Math.random()) * rMax; 
                 const theta = Math.random() * Math.PI * 2;
                 
                 const treePos = new THREE.Vector3(r * Math.cos(theta), h, r * Math.sin(theta));
-                // 16:10适配的粒子散开分布（扩大范围）
+                // 核心修改3：增大粒子散开范围（含深度），旋转时填满屏幕
                 const scatterPos = randomScreenFillPoint();
 
                 array.push({
                     treePos: treePos,
                     scatterPos: scatterPos,
                     currentPos: treePos.clone(),
-                    scale: 0.7 + Math.random() * 0.9, // 粒子尺寸微调增大
+                    scale: 1.0 + Math.random() * 1.2, // 核心修改4：增大粒子基础缩放（视觉更大）
                     rotSpeed: new THREE.Euler(Math.random()*0.03, Math.random()*0.03, Math.random()*0.03),
                     rotation: new THREE.Euler(Math.random()*Math.PI, Math.random()*Math.PI, 0)
                 });
             }
         }
 
-        // 核心修改4：扩大16:10粒子散开范围，匹配大圣诞树
+        // 核心修改5：扩大粒子分布范围（x/y/z轴），覆盖16:10全屏+深度
         function randomScreenFillPoint() {
             const aspect = 16/10; 
-            const x = (Math.random() - 0.5) * 480; // 宽度从320→480
-            const y = (Math.random() - 0.5) * (480 / aspect); // 高度适配16:10
-            const z = 60 + Math.random() * 200; // 深度从50+150→60+200
+            const x = (Math.random() - 0.5) * 550; // 宽度从480→550
+            const y = (Math.random() - 0.5) * (550 / aspect); // 高度适配16:10
+            const z = 50 + Math.random() * 250; // 深度从200→250（前后覆盖更广）
             return new THREE.Vector3(x, y, z);
         }
 
@@ -363,9 +359,8 @@
             const geo = new THREE.BufferGeometry();
             const pos = [];
             for(let i=0; i<CONFIG.dustCount; i++) {
-                // 适配新的treeHeight和maxRadius计算尘埃树态位置
                 const h = Math.random() * CONFIG.treeHeight - CONFIG.treeHeight/2;
-                const r = Math.random() * CONFIG.maxRadius * (1 - (h + CONFIG.treeHeight/2)/CONFIG.treeHeight) + 3; // 基础半径从2→3
+                const r = Math.random() * CONFIG.maxRadius * (1 - (h + CONFIG.treeHeight/2)/CONFIG.treeHeight) + 3;
                 const theta = Math.random() * Math.PI * 2;
                 pos.push(r*Math.cos(theta), h, r*Math.sin(theta));
                 logicData.dust.push({
@@ -375,13 +370,13 @@
                 });
             }
             geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-            // 尘埃尺寸从0.8→1.0，增强视觉效果
-            dustSystem = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffee, size: 1.0, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
+            // 核心修改6：增大尘埃尺寸（从1.0→1.2）
+            dustSystem = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffee, size: 1.2, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
             mainGroup.add(dustSystem);
         }
         
         function createStarField() {
-            // 扩大星空范围，适配16:10大屏
+            // 扩大星空范围，填充背景
             const geo = new THREE.BufferGeometry();
             const pos = [];
             for(let i=0; i<3000; i++) pos.push((Math.random()-0.5)*3000, (Math.random()-0.5)*3000, (Math.random()-0.5)*3000);
@@ -403,14 +398,14 @@
             updateDust();
             updatePhotos();
             
-            // 星星动画适配大尺寸
+            // 星星动画
             if (logicData.star) {
                 let target = currentState === STATE.TREE ? logicData.star.userData.treePos : logicData.star.userData.scatterPos;
                 logicData.star.position.lerp(target, 0.08);
-                logicData.star.rotation.y += 0.008; // 旋转速度微调
+                logicData.star.rotation.y += 0.008;
             }
 
-            // 物理惯性旋转逻辑（适配大圣诞树，微调旋转系数）
+            // 旋转逻辑：微调惯性，避免旋转过快导致空白
             if (currentState === STATE.ZOOM) {
                 rotationVelocity.x = 0;
                 rotationVelocity.y = 0;
@@ -421,30 +416,30 @@
                     const deltaY = handPos.y - lastHandPos.y;
                     
                     if (deltaX > 0.002) { 
-                        rotationVelocity.y += deltaX * 0.16; // 微调旋转力度
+                        rotationVelocity.y += deltaX * 0.14; // 降低旋转力度，避免视角突变
                     }
                     
                     if (Math.abs(deltaY) > 0.002) {
-                        rotationVelocity.x += deltaY * 0.05; 
+                        rotationVelocity.x += deltaY * 0.04; 
                     }
                     
                     lastHandPos.x = handPos.x;
                     lastHandPos.y = handPos.y;
                 }
                 
-                rotationVelocity.y = Math.min(rotationVelocity.y, 0.05);
-                rotationVelocity.x = Math.max(Math.min(rotationVelocity.x, 0.025), -0.025);
+                rotationVelocity.y = Math.min(rotationVelocity.y, 0.04);
+                rotationVelocity.x = Math.max(Math.min(rotationVelocity.x, 0.02), -0.02);
 
                 mainGroup.rotation.y += rotationVelocity.y;
                 mainGroup.rotation.x += rotationVelocity.x;
                 
-                rotationVelocity.y *= 0.95; 
-                rotationVelocity.x *= 0.91; 
+                rotationVelocity.y *= 0.94; 
+                rotationVelocity.x *= 0.90; 
                 
                 mainGroup.rotation.x *= 0.97; 
 
             } else if (currentState === STATE.TREE) {
-                mainGroup.rotation.y += 0.0025; // 旋转速度微调变慢
+                mainGroup.rotation.y += 0.0025;
                 mainGroup.rotation.x *= 0.95;
             }
 
@@ -464,7 +459,7 @@
                 item.rotation.y += item.rotSpeed.y;
 
                 let s = item.scale;
-                if(currentState === STATE.ZOOM) s = item.scale * 0.6; 
+                if(currentState === STATE.ZOOM) s = item.scale * 0.7; // 放大时粒子稍大
 
                 dummy.position.copy(item.currentPos);
                 dummy.rotation.copy(item.rotation);
@@ -482,7 +477,6 @@
                 let target = currentState === STATE.TREE ? item.treePos : item.scatterPos;
                 if(currentState !== STATE.TREE) item.currentPos.lerp(target, 0.12);
                 else {
-                    // 适配新的treeHeight调整尘埃y轴移动范围
                     item.currentPos.y += 0.06;
                     if(item.currentPos.y > CONFIG.treeHeight/2) item.currentPos.y = -CONFIG.treeHeight/2;
                     const normH = (item.currentPos.y + CONFIG.treeHeight/2) / CONFIG.treeHeight;
@@ -502,18 +496,18 @@
 
         function updatePhotos() {
             photoMeshes.forEach((mesh, idx) => {
-                let targetPos, targetScale = 2.5; // 照片基础尺寸从2.0→2.5
+                let targetPos, targetScale = 3.0; // 核心修改7：增大照片基础尺寸（从2.5→3.0）
                 
                 if (currentState === STATE.SCATTER) {
-                    targetScale = 5.0; // 散开尺寸从4.5→5.0
+                    targetScale = 5.5; // 散开时照片更大
                     mesh.lookAt(camera.position); 
                 }
 
                 if (currentState === STATE.ZOOM && idx === zoomTargetIndex) {
-                    const targetWorldPos = new THREE.Vector3(0, 0, 100); // 照片放大位置后移从90→100
+                    const targetWorldPos = new THREE.Vector3(0, 0, 100);
                     targetPos = mainGroup.worldToLocal(targetWorldPos);
                     
-                    targetScale = 6.0; // 放大尺寸从5.0→6.0
+                    targetScale = 6.5; // 抓取时照片更大
                     mesh.lookAt(camera.position); 
                 } else {
                     targetPos = currentState === STATE.TREE ? mesh.userData.treePos : mesh.userData.scatterPos;
@@ -723,9 +717,9 @@
             const tex = new THREE.Texture(img);
             tex.needsUpdate = true;
             tex.colorSpace = THREE.SRGBColorSpace;
-            let w = 5, h = 5; // 照片基础尺寸从4→5
-            if(img.width > img.height) h = 5 * (img.height/img.width);
-            else w = 5 * (img.width/img.height);
+            let w = 6, h = 6; // 核心修改8：增大照片基础尺寸（从5→6）
+            if(img.width > img.height) h = 6 * (img.height/img.width);
+            else w = 6 * (img.width/img.height);
 
             const geo = new THREE.PlaneGeometry(w, h);
             const mat = new THREE.MeshBasicMaterial({ 
@@ -740,7 +734,6 @@
             frame.position.z = -0.08;
             mesh.add(frame);
 
-            // 适配新的treeHeight和maxRadius计算照片树态位置
             const h_pos = (Math.random() - 0.5) * CONFIG.treeHeight;
             const normH = (h_pos + CONFIG.treeHeight/2) / CONFIG.treeHeight;
             const maxR = CONFIG.maxRadius * (1 - normH);
