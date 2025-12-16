@@ -16,7 +16,7 @@
             height: 100vh;
         }
 
-        /* 4:3 容器 */
+        /* 16:10 容器（核心修改1） */
         #canvas-wrapper {
             position: relative;
             box-shadow: 0 0 50px rgba(255, 215, 0, 0.1);
@@ -206,11 +206,12 @@
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x020202); 
 
-            // 初始化尺寸计算 (4:3)
+            // 初始化尺寸计算 (16:10)
             updateDimensions();
 
-            camera = new THREE.PerspectiveCamera(50, wrapper.clientWidth / wrapper.clientHeight, 0.1, 1000);
-            camera.position.set(0, 0, 110);
+            // 适配16:10的相机参数（核心修改2）
+            camera = new THREE.PerspectiveCamera(60, wrapper.clientWidth / wrapper.clientHeight, 0.1, 2000); 
+            camera.position.set(0, 0, 130); 
 
             renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
             renderer.setSize(wrapper.clientWidth, wrapper.clientHeight);
@@ -259,7 +260,8 @@
         }
 
         function updateDimensions() {
-            const targetAspect = 4 / 3;
+            // 核心修改3：将目标比例从4/3改为16/10 (1.6)
+            const targetAspect = 16 / 10; 
             const windowAspect = window.innerWidth / window.innerHeight;
             let width, height;
 
@@ -311,7 +313,7 @@
                 new THREE.OctahedronGeometry(3.0, 0), 
                 new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness:0.8, roughness:0, emissive:0xffffee, emissiveIntensity:1 })
             );
-            star.userData = { treePos: new THREE.Vector3(0, CONFIG.treeHeight/2 + 2, 0), scatterPos: new THREE.Vector3(0, 60, 0) };
+            star.userData = { treePos: new THREE.Vector3(0, CONFIG.treeHeight/2 + 2, 0), scatterPos: new THREE.Vector3(0, 80, 0) }; 
             star.position.copy(star.userData.treePos);
             mainGroup.add(star);
             logicData.star = star;
@@ -335,7 +337,8 @@
                 const theta = Math.random() * Math.PI * 2;
                 
                 const treePos = new THREE.Vector3(r * Math.cos(theta), h, r * Math.sin(theta));
-                const scatterPos = randomSpherePoint(40 + Math.random()*40);
+                // 适配16:10的粒子分布
+                const scatterPos = randomScreenFillPoint();
 
                 array.push({
                     treePos: treePos,
@@ -348,10 +351,13 @@
             }
         }
 
-        function randomSpherePoint(r) {
-            const u = Math.random(), v = Math.random();
-            const theta = 2 * Math.PI * u, phi = Math.acos(2 * v - 1);
-            return new THREE.Vector3(r * Math.sin(phi) * Math.cos(theta), r * Math.sin(phi) * Math.sin(theta), r * Math.cos(phi));
+        // 核心修改4：适配16:10的长方体分布（宽高比16:10）
+        function randomScreenFillPoint() {
+            const aspect = 16/10; // 16:10比例
+            const x = (Math.random() - 0.5) * 320; // 宽度方向覆盖
+            const y = (Math.random() - 0.5) * (320 / aspect); // 高度适配16:10
+            const z = 50 + Math.random() * 150; // 深度范围
+            return new THREE.Vector3(x, y, z);
         }
 
         function createDust() {
@@ -364,21 +370,22 @@
                 pos.push(r*Math.cos(theta), h, r*Math.sin(theta));
                 logicData.dust.push({
                     treePos: new THREE.Vector3(r*Math.cos(theta), h, r*Math.sin(theta)),
-                    scatterPos: randomSpherePoint(60),
+                    // 适配16:10的尘埃分布
+                    scatterPos: randomScreenFillPoint(),
                     currentPos: new THREE.Vector3(r*Math.cos(theta), h, r*Math.sin(theta))
                 });
             }
             geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-            dustSystem = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffee, size: 0.6, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }));
+            dustSystem = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffee, size: 0.8, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
             mainGroup.add(dustSystem);
         }
         
         function createStarField() {
             const geo = new THREE.BufferGeometry();
             const pos = [];
-            for(let i=0; i<1000; i++) pos.push((Math.random()-0.5)*1000, (Math.random()-0.5)*1000, (Math.random()-0.5)*1000);
+            for(let i=0; i<2000; i++) pos.push((Math.random()-0.5)*2000, (Math.random()-0.5)*2000, (Math.random()-0.5)*2000);
             geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-            const stars = new THREE.Points(geo, new THREE.PointsMaterial({color: 0x888888, size: 1.2, transparent: true, opacity: 0.5}));
+            const stars = new THREE.Points(geo, new THREE.PointsMaterial({color: 0x888888, size: 1.5, transparent: true, opacity: 0.6}));
             scene.add(stars);
         }
 
@@ -398,47 +405,42 @@
             // 星星
             if (logicData.star) {
                 let target = currentState === STATE.TREE ? logicData.star.userData.treePos : logicData.star.userData.scatterPos;
-                logicData.star.position.lerp(target, 0.05);
+                logicData.star.position.lerp(target, 0.08);
                 logicData.star.rotation.y += 0.01;
             }
 
-            // --- 物理惯性旋转逻辑 (核心修改) ---
+            // --- 物理惯性旋转逻辑 ---
             if (currentState === STATE.ZOOM) {
-                // 缩放模式下：停止速度，但不重置角度！
                 rotationVelocity.x = 0;
                 rotationVelocity.y = 0;
-                // 注意：这里删除了 mainGroup.rotation 归正的代码，保持原角度
             } 
             else if (currentState === STATE.SCATTER) {
                 if (isHandPresent) {
                     const deltaX = handPos.x - lastHandPos.x;
                     const deltaY = handPos.y - lastHandPos.y;
                     
-                    // 1. 左右旋转 (Y轴) - 棘轮机制
                     if (deltaX > 0.002) { 
-                        rotationVelocity.y += deltaX * 0.15; // 力度系数
+                        rotationVelocity.y += deltaX * 0.18;
                     }
                     
-                    // 2. 上下微动 (X轴)
                     if (Math.abs(deltaY) > 0.002) {
-                        rotationVelocity.x += deltaY * 0.05; 
+                        rotationVelocity.x += deltaY * 0.06; 
                     }
                     
                     lastHandPos.x = handPos.x;
                     lastHandPos.y = handPos.y;
                 }
                 
-                // 3. 物理模拟
-                rotationVelocity.y = Math.min(rotationVelocity.y, 0.05);
-                rotationVelocity.x = Math.max(Math.min(rotationVelocity.x, 0.02), -0.02);
+                rotationVelocity.y = Math.min(rotationVelocity.y, 0.06);
+                rotationVelocity.x = Math.max(Math.min(rotationVelocity.x, 0.03), -0.03);
 
                 mainGroup.rotation.y += rotationVelocity.y;
                 mainGroup.rotation.x += rotationVelocity.x;
                 
-                rotationVelocity.y *= 0.96; 
-                rotationVelocity.x *= 0.92; 
+                rotationVelocity.y *= 0.95; 
+                rotationVelocity.x *= 0.91; 
                 
-                mainGroup.rotation.x *= 0.98; 
+                mainGroup.rotation.x *= 0.97; 
 
             } else if (currentState === STATE.TREE) {
                 mainGroup.rotation.y += 0.003;
@@ -454,9 +456,9 @@
                 let target = currentState === STATE.TREE ? item.treePos : item.scatterPos;
                 if(currentState === STATE.ZOOM) target = item.scatterPos;
                 
-                if (currentState === STATE.SCATTER) item.currentPos.y += Math.sin(time + i)*0.005;
+                if (currentState === STATE.SCATTER) item.currentPos.y += Math.sin(time + i)*0.008;
 
-                item.currentPos.lerp(target, 0.08);
+                item.currentPos.lerp(target, 0.15);
                 item.rotation.x += item.rotSpeed.x;
                 item.rotation.y += item.rotSpeed.y;
 
@@ -477,7 +479,7 @@
             for(let i=0; i<logicData.dust.length; i++) {
                 const item = logicData.dust[i];
                 let target = currentState === STATE.TREE ? item.treePos : item.scatterPos;
-                if(currentState !== STATE.TREE) item.currentPos.lerp(target, 0.05);
+                if(currentState !== STATE.TREE) item.currentPos.lerp(target, 0.12);
                 else {
                     item.currentPos.y += 0.05;
                     if(item.currentPos.y > CONFIG.treeHeight/2) item.currentPos.y = -CONFIG.treeHeight/2;
@@ -496,28 +498,24 @@
             dustSystem.geometry.attributes.position.needsUpdate = true;
         }
 
-        // 核心修改：照片更新逻辑
         function updatePhotos() {
             photoMeshes.forEach((mesh, idx) => {
                 let targetPos, targetScale = 2.0; 
                 
                 if (currentState === STATE.SCATTER) {
-                    targetScale = 4.0; 
+                    targetScale = 4.5;
                     mesh.lookAt(camera.position); 
                 }
 
                 if (currentState === STATE.ZOOM && idx === zoomTargetIndex) {
-                    // 1. 计算"镜头正前方"的世界坐标
-                    const targetWorldPos = new THREE.Vector3(0, 0, 80); 
-                    // 2. 将该世界坐标转换为 mainGroup 的局部坐标
-                    // 这样无论 mainGroup 怎么转，照片都会飞到相对镜头的正前方
+                    const targetWorldPos = new THREE.Vector3(0, 0, 90);
                     targetPos = mainGroup.worldToLocal(targetWorldPos);
                     
-                    targetScale = 4.0;
+                    targetScale = 5.0;
                     mesh.lookAt(camera.position); 
                 } else {
                     targetPos = currentState === STATE.TREE ? mesh.userData.treePos : mesh.userData.scatterPos;
-                    if(currentState !== STATE.TREE) mesh.position.y += Math.sin(time+idx)*0.01;
+                    if(currentState !== STATE.TREE) mesh.position.y += Math.sin(time+idx)*0.012;
                     
                     if (currentState === STATE.TREE) {
                         mesh.rotation.copy(mesh.userData.baseRot);
@@ -525,39 +523,34 @@
                     }
                 }
                 
-                mesh.position.lerp(targetPos, 0.1);
-                mesh.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
+                mesh.position.lerp(targetPos, 0.12);
+                mesh.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.12);
             });
         }
 
-        // --- 新增：自动加载27张图片 ---
+        // --- 自动加载27张图片 ---
         function loadDefaultPhotos() {
             const statusText = document.getElementById('status-text');
             statusText.innerText = "正在加载回忆... (0/27)";
             let loadedCount = 0;
             const totalPhotos = 27;
 
-            // 遍历加载1-27.jpg
             for (let i = 1; i <= totalPhotos; i++) {
-                const imgUrl = `./images/photos/${i}.jpg`; // 图片路径（需确保文件存在）
+                const imgUrl = `./images/photos/${i}.jpg`;
                 const img = new Image();
                 
-                // 跨域处理（若部署在CDN/GitHub Pages需开启）
                 img.crossOrigin = 'anonymous';
                 
-                // 图片加载成功
                 img.onload = () => {
                     addPhotoMesh(img);
                     loadedCount++;
                     statusText.innerText = `正在加载照片... (${loadedCount}/${totalPhotos})`;
                     
-                    // 全部加载完成
                     if (loadedCount === totalPhotos) {
                         statusText.innerText = "回忆就绪，请伸手";
                     }
                 };
                 
-                // 图片加载失败（容错处理）
                 img.onerror = () => {
                     console.warn(`图片加载失败: ${imgUrl}（请检查文件路径）`);
                     loadedCount++;
@@ -568,7 +561,6 @@
                     }
                 };
                 
-                // 开始加载
                 img.src = imgUrl;
             }
         }
@@ -588,12 +580,10 @@
                 video.srcObject = stream;
                 video.addEventListener("loadeddata", () => {
                     document.getElementById('loading').style.display = 'none';
-                    // 摄像头加载完成后，自动加载27张照片
                     loadDefaultPhotos();
                     predictWebcam(handLandmarker, video);
                 });
             }).catch(err => {
-                // 摄像头权限拒绝时，仍自动加载照片
                 console.error("摄像头权限错误:", err);
                 document.getElementById('loading').style.display = 'none';
                 loadDefaultPhotos();
@@ -665,7 +655,6 @@
                     status.innerHTML = "状态: <span style='color:#ffd700'>抓取照片</span>";
                     
                     if (zoomTargetIndex === -1 && photoMeshes.length > 0) {
-                        // 智能选择：计算所有照片的世界坐标，选离相机最近的
                         let minDist = Infinity;
                         let bestIdx = 0;
                         const camPos = camera.position;
@@ -712,7 +701,7 @@
             composer.passes[1].resolution.set(dims.width, dims.height);
         }
 
-        // 保留原有上传按钮功能（手动上传）
+        // 手动上传照片
         document.getElementById('file-input').addEventListener('change', function(e) {
             const files = e.target.files;
             if (!files.length) return;
@@ -756,7 +745,8 @@
             const theta = Math.random() * Math.PI * 2;
             
             const treePos = new THREE.Vector3(r * Math.cos(theta), h_pos, r * Math.sin(theta));
-            const scatterPos = randomSpherePoint(50);
+            // 适配16:10的照片分布
+            const scatterPos = randomScreenFillPoint();
 
             mesh.userData = { treePos, scatterPos, baseRot: new THREE.Euler(0, Math.random()*Math.PI, 0) };
             mesh.position.copy(treePos);
