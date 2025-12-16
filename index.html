@@ -35,7 +35,15 @@
             border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 8px; overflow: hidden;
             transform: scaleX(-1); box-shadow: 0 0 15px rgba(0,0,0,0.5);
             background: rgba(0,0,0,0.5);
-            transition: opacity 0.5s; 
+            transition: opacity 0.5s, visibility 0.5s; 
+            opacity: 1;
+            visibility: visible;
+        }
+        /* 摄像头隐藏状态 */
+        #video-container.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
         }
         #input-video { 
             width: 100%; height: 100%; object-fit: cover; opacity: 0.6; 
@@ -82,13 +90,23 @@
 
         /* 全屏按钮 */
         #fullscreen-btn {
-            position: absolute; top: 30px; right: 200px; z-index: 20;
+            position: absolute; top: 30px; right: 250px; z-index: 20; /* 调整位置给摄像头按钮腾出空间 */
             background: rgba(0,0,0,0.5); color: #d4af37; border: 1px solid #d4af37;
             width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
             display: flex; align-items: center; justify-content: center;
             font-size: 1.2rem; transition: all 0.3s;
         }
         #fullscreen-btn:hover { background: #d4af37; color: #000; }
+
+        /* 摄像头开关按钮 */
+        #camera-btn {
+            position: absolute; top: 30px; right: 200px; z-index: 20;
+            background: rgba(0,0,0,0.5); color: #d4af37; border: 1px solid #d4af37;
+            width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem; transition: all 0.3s;
+        }
+        #camera-btn:hover { background: #d4af37; color: #000; }
 
         /* 隐藏 UI 的类 */
         .hide-ui #ui-layer, 
@@ -97,10 +115,12 @@
             pointer-events: none;
         }
         
-        .hide-ui #fullscreen-btn {
+        .hide-ui #fullscreen-btn,
+        .hide-ui #camera-btn {
             opacity: 0.3;
         }
-        .hide-ui #fullscreen-btn:hover {
+        .hide-ui #fullscreen-btn:hover,
+        .hide-ui #camera-btn:hover {
             opacity: 1;
         }
     </style>
@@ -124,7 +144,10 @@
             <canvas id="skeleton-canvas"></canvas>
         </div>
 
+        <!-- 全屏按钮 -->
         <button id="fullscreen-btn" onclick="toggleUI()" title="切换沉浸模式">⛶</button>
+        <!-- 摄像头开关按钮 -->
+        <button id="camera-btn" onclick="toggleCamera()" title="显示/隐藏摄像头">📷</button>
 
         <div id="ui-layer">
             <h1>Insects' antennae are tickling the world</h1>
@@ -193,10 +216,32 @@
         // 物理惯性变量
         let rotationVelocity = { x: 0, y: 0 };
 
+        // 摄像头状态标记
+        let isCameraVisible = true;
+
         // UI Toggle
         window.toggleUI = function() {
             const wrapper = document.getElementById('canvas-wrapper');
             wrapper.classList.toggle('hide-ui');
+        };
+
+        // 新增：摄像头显示/隐藏切换函数
+        window.toggleCamera = function() {
+            const videoContainer = document.getElementById('video-container');
+            const cameraBtn = document.getElementById('camera-btn');
+            
+            isCameraVisible = !isCameraVisible;
+            
+            // 切换样式和图标
+            if (isCameraVisible) {
+                videoContainer.classList.remove('hidden');
+                cameraBtn.innerHTML = "📷"; // 显示摄像头图标
+                cameraBtn.title = "隐藏摄像头";
+            } else {
+                videoContainer.classList.add('hidden');
+                cameraBtn.innerHTML = "🔴"; // 隐藏摄像头图标
+                cameraBtn.title = "显示摄像头";
+            }
         };
 
         function initThree() {
