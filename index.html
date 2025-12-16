@@ -66,9 +66,7 @@
         .highlight { color: #d4af37; font-weight: bold; }
         #status-text { margin-bottom: 10px; font-size: 1rem; color: #fff; font-weight: bold; }
 
-        /* 隐藏上传按钮（核心修改） */
         #upload-btn {
-            display: none; /* 直接隐藏上传按钮 */
             pointer-events: auto; background: linear-gradient(45deg, #444, #666); border: 1px solid #888;
             color: #fff; padding: 10px 24px; cursor: pointer; text-transform: uppercase;
             font-size: 0.8rem; margin-top: 25px; transition: 0.3s; 
@@ -129,13 +127,13 @@
         <button id="fullscreen-btn" onclick="toggleUI()" title="切换沉浸模式">⛶</button>
 
         <div id="ui-layer">
-            <h1>Insects' antennae are tickling the world！</h1>
-            <div id="status-text">回忆初始化...</div>
+            <h1>Jewel Christmas</h1>
+            <div id="status-text">系统初始化...</div>
             <div class="instructions">
                 • <span class="highlight">握拳</span> : 聚合成树<br/>
                 • <span class="highlight">张开手</span> : 星云散开<br/>
                 • <span class="highlight">向右划动</span> : 惯性拨动 (像拨地球仪)<br/>
-                • <span class="highlight">捏合手指</span> : 抓取照片 <!-- 移除“需上传”提示 -->
+                • <span class="highlight">捏合手指</span> : 抓取照片
             </div>
             <button id="upload-btn" onclick="document.getElementById('file-input').click()">上传照片</button>
             <input type="file" id="file-input" multiple accept="image/*">
@@ -532,6 +530,49 @@
             });
         }
 
+        // --- 新增：自动加载27张图片 ---
+        function loadDefaultPhotos() {
+            const statusText = document.getElementById('status-text');
+            statusText.innerText = "正在加载照片... (0/27)";
+            let loadedCount = 0;
+            const totalPhotos = 27;
+
+            // 遍历加载1-27.jpg
+            for (let i = 1; i <= totalPhotos; i++) {
+                const imgUrl = `./images/photos/${i}.jpg`; // 图片路径（需确保文件存在）
+                const img = new Image();
+                
+                // 跨域处理（若部署在CDN/GitHub Pages需开启）
+                img.crossOrigin = 'anonymous';
+                
+                // 图片加载成功
+                img.onload = () => {
+                    addPhotoMesh(img);
+                    loadedCount++;
+                    statusText.innerText = `正在加载照片... (${loadedCount}/${totalPhotos})`;
+                    
+                    // 全部加载完成
+                    if (loadedCount === totalPhotos) {
+                        statusText.innerText = "系统就绪，请伸手";
+                    }
+                };
+                
+                // 图片加载失败（容错处理）
+                img.onerror = () => {
+                    console.warn(`图片加载失败: ${imgUrl}（请检查文件路径）`);
+                    loadedCount++;
+                    statusText.innerText = `正在加载照片... (${loadedCount}/${totalPhotos}) [部分失败]`;
+                    
+                    if (loadedCount === totalPhotos) {
+                        statusText.innerText = "系统就绪（部分照片加载失败），请伸手";
+                    }
+                };
+                
+                // 开始加载
+                img.src = imgUrl;
+            }
+        }
+
         // --- Interaction ---
         async function setupMediaPipe() {
             const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm");
@@ -547,9 +588,16 @@
                 video.srcObject = stream;
                 video.addEventListener("loadeddata", () => {
                     document.getElementById('loading').style.display = 'none';
-                    // 初始化完成后自动加载默认照片（核心修改）
+                    // 摄像头加载完成后，自动加载27张照片
                     loadDefaultPhotos();
+                    predictWebcam(handLandmarker, video);
                 });
+            }).catch(err => {
+                // 摄像头权限拒绝时，仍自动加载照片
+                console.error("摄像头权限错误:", err);
+                document.getElementById('loading').style.display = 'none';
+                loadDefaultPhotos();
+                predictWebcam(handLandmarker, video);
             });
         }
 
@@ -634,7 +682,7 @@
                         zoomTargetIndex = bestIdx;
                     }
                 } else {
-                    status.innerHTML = "状态: <span style='color:#aaa'>图片加载中...</span>";
+                    status.innerHTML = "状态: <span style='color:#aaa'>照片加载中...</span>";
                 }
             } else if (isFist) {
                 currentState = STATE.TREE;
@@ -664,46 +712,21 @@
             composer.passes[1].resolution.set(dims.width, dims.height);
         }
 
-        // 核心新增：自动加载默认照片（1.jpg ~ 27.jpg）
-        function loadDefaultPhotos() {
-            const statusText = document.getElementById('status-text');
-            statusText.innerText = "正在加载回忆...";
-            let loadedCount = 0;
-            const totalPhotos = 27; // 加载1-27.jpg
-
-            // 遍历加载所有照片
-            for (let i = 1; i <= totalPhotos; i++) {
-                // 图片路径：相对于index.html的路径（GitHub Pages根目录下的images/photos/）
-                const imgUrl = `./images/photos/${i}.jpg`;
-                const img = new Image();
-                
-                // 处理跨域（GitHub Pages需要）
-                img.crossOrigin = 'anonymous';
-                
-                // 图片加载成功
-                img.onload = () => {
-                    addPhotoMesh(img);
-                    loadedCount++;
-                    statusText.innerText = `已加载 ${loadedCount}/${totalPhotos} 张回忆`;
-                    // 全部加载完成
-                    if (loadedCount === totalPhotos) {
-                        statusText.innerText = "回忆就绪，请伸手";
-                    }
-                };
-                
-                // 图片加载失败（容错处理）
-                img.onerror = () => {
-                    console.warn(`图片加载失败: ${imgUrl}（可能文件不存在）`);
-                    loadedCount++;
-                    if (loadedCount === totalPhotos) {
-                        statusText.innerText = "系统就绪（部分图片加载失败），请伸手";
-                    }
-                };
-                
-                // 开始加载图片
-                img.src = imgUrl;
+        // 保留原有上传按钮功能（手动上传）
+        document.getElementById('file-input').addEventListener('change', function(e) {
+            const files = e.target.files;
+            if (!files.length) return;
+            for(let i=0; i<files.length; i++) {
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    const img = new Image();
+                    img.src = evt.target.result;
+                    img.onload = () => { addPhotoMesh(img); }
+                }
+                reader.readAsDataURL(files[i]);
             }
-        }
+            alert(`已添加 ${files.length} 张照片`);
+        });
 
         function addPhotoMesh(img) {
             const tex = new THREE.Texture(img);
@@ -747,4 +770,3 @@
     </script>
 </body>
 </html>
-
