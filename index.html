@@ -129,7 +129,7 @@
         <button id="fullscreen-btn" onclick="toggleUI()" title="切换沉浸模式">⛶</button>
 
         <div id="ui-layer">
-            <h1>Insects' antennae are tickling the world's soft spot！</h1>
+            <h1>Insects' antennae are tickling the world！</h1>
             <div id="status-text">回忆初始化...</div>
             <div class="instructions">
                 • <span class="highlight">握拳</span> : 聚合成树<br/>
@@ -667,7 +667,7 @@
         // 核心新增：自动加载默认照片（1.jpg ~ 27.jpg）
         function loadDefaultPhotos() {
             const statusText = document.getElementById('status-text');
-            statusText.innerText = "正在加载照片...";
+            statusText.innerText = "正在加载回忆...";
             let loadedCount = 0;
             const totalPhotos = 27; // 加载1-27.jpg
 
@@ -684,10 +684,10 @@
                 img.onload = () => {
                     addPhotoMesh(img);
                     loadedCount++;
-                    statusText.innerText = `已加载 ${loadedCount}/${totalPhotos} 张照片`;
+                    statusText.innerText = `已加载 ${loadedCount}/${totalPhotos} 张回忆`;
                     // 全部加载完成
                     if (loadedCount === totalPhotos) {
-                        statusText.innerText = "系统就绪，请伸手";
+                        statusText.innerText = "回忆就绪，请伸手";
                     }
                 };
                 
